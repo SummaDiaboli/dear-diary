@@ -1,0 +1,12 @@
+import { View, Text } from 'react-native'
+import React from 'react'
+
+const MessageBox = () => {
+  return (
+    <View>
+      <Text>MessageBox</Text>
+    </View>
+  )
+}
+
+export default MessageBox
