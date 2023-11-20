@@ -19,6 +19,16 @@ import Animated, {
 } from "react-native-reanimated"
 import { useRecoilState } from "recoil"
 import { isEditableState } from "../../atoms/MessageBoxAtom"
+import * as ImagePicker from "expo-image-picker"
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage"
+import {
+    firebaseAuth,
+    firestore,
+    storage,
+} from "../../constants/firebaseConfig"
+import { collection, addDoc, serverTimestamp } from "firebase/firestore"
+import { currentDate } from "../../atoms/DateAtom"
+import { format } from "date-fns"
 
 type FabAction = {
     name: string
@@ -32,11 +42,90 @@ const ChatFAB = () => {
 
     const [isOpen, setIsOpen] = useState(false)
     const [isEditable, setIsEditable] = useRecoilState(isEditableState)
+    const [dateTimeState] = useRecoilState(currentDate)
+    const dateTime = format(dateTimeState, "dLLLyyy")
 
     const makeMessageEditable = () => {
         setIsEditable(true)
         setIsOpen(false)
         // console.log(isEditable)
+    }
+
+    const pickImage = async () => {
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.All,
+            // allowsEditing: true,
+            quality: 1,
+            orderedSelection: true,
+            allowsMultipleSelection: true,
+            // videoMaxDuration: ,
+            // aspect: [4, 3],
+        })
+
+        // console.log(result)
+
+        if (!result.canceled) {
+            result.assets.forEach((file) => {
+                uploadFile(file)
+            })
+        } else {
+            console.log("cancelled")
+        }
+
+        setIsOpen(false)
+    }
+
+    const uploadFile = async (file: ImagePicker.ImagePickerAsset) => {
+        const blob: Blob = await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest()
+            xhr.onload = function () {
+                resolve(xhr.response)
+            }
+            xhr.onerror = function (e) {
+                console.log(e)
+                reject(new TypeError("Network request failed"))
+            }
+            xhr.responseType = "blob"
+            xhr.open("GET", file.uri, true)
+            xhr.send(null)
+        })
+
+        if (file.type === "image") {
+            const imageRef = ref(
+                storage,
+                `images/${firebaseAuth.currentUser?.uid}/${Date.now()}${file.uri
+                    .split("/")
+                    .pop()}`
+            )
+            // console.log({ blob })
+
+            const result = await uploadBytes(imageRef, blob)
+            const downloadUrl = await getDownloadURL(imageRef)
+            await addDoc(collection(firestore, "diaries", dateTime, "chats"), {
+                date: serverTimestamp(),
+                url: downloadUrl,
+                isMedia: true,
+                type: file.type,
+                sender: firebaseAuth.currentUser?.displayName,
+            })
+        } else if (file.type === "video") {
+            const videoRef = ref(
+                storage,
+                `videos/${firebaseAuth.currentUser?.uid}/${Date.now()}${file.uri
+                    .split("/")
+                    .pop()}`
+            )
+
+            const result = await uploadBytes(videoRef, blob)
+            const downloadUrl = await getDownloadURL(videoRef)
+            await addDoc(collection(firestore, "diaries", dateTime, "chats"), {
+                date: serverTimestamp(),
+                url: downloadUrl,
+                isMedia: true,
+                type: file.type,
+                sender: firebaseAuth.currentUser?.displayName,
+            })
+        }
     }
 
     const actions: FabAction[] = [
@@ -54,6 +143,7 @@ const ChatFAB = () => {
         {
             name: "Image",
             icon: <SimpleLineIcons name="picture" size={24} color="black" />,
+            onTap: pickImage,
         },
         {
             name: "Draw",

@@ -1,4 +1,4 @@
-import { View, TextInput } from "react-native"
+import { View, TextInput, Image } from "react-native"
 import React, { useEffect, useRef, useState } from "react"
 import tw from "../../constants/tw"
 import ChatText from "./ChatText"
@@ -17,6 +17,10 @@ import {
 import { firebaseAuth, firestore } from "../../constants/firebaseConfig"
 import { ScrollView } from "react-native-gesture-handler"
 import { format } from "date-fns"
+import { currentDate } from "../../atoms/DateAtom"
+import { Video, ResizeMode } from "expo-av"
+import ChatVideo from "./ChatVideo"
+import ChatImage from "./ChatImage"
 
 type Message = {
     date: Timestamp
@@ -33,7 +37,8 @@ const ChatTextView = ({
     const [isTextEditable, setIsTextEditable] = useRecoilState(isEditableState)
     const [messageText, setMessageText] = useState("")
     const [messages, setMessages] = useState<DocumentData[]>([])
-    const dateTime = format(Date.now(), "dLLLyyy")
+    const [dateTimeState] = useRecoilState(currentDate)
+    const dateTime = format(dateTimeState, "dLLLyyy")
 
     useEffect(() => {
         if (isTextEditable && messageBoxRef) {
@@ -45,6 +50,7 @@ const ChatTextView = ({
     // const fetchMessages = async () => {
 
     useEffect(() => {
+        setMessages([])
         const querySnapshot = query(
             collection(
                 firestore,
@@ -56,6 +62,7 @@ const ChatTextView = ({
             ),
             orderBy("date", "asc")
         )
+        
 
         const unsubscribe = onSnapshot(querySnapshot, (snapshot) => {
             const messages: DocumentData[] = []
@@ -68,7 +75,7 @@ const ChatTextView = ({
         return () => {
             unsubscribe()
         }
-    }, [])
+    }, [dateTimeState])
 
     // }
 
@@ -99,20 +106,33 @@ const ChatTextView = ({
         }
     }
 
+    const returnMessage = (message: DocumentData, index: number) => {
+        switch (message.type) {
+            case "image":
+                return <ChatImage message={message} key={`message${index}`} />
+
+            case "video":
+                return <ChatVideo message={message} key={`message${index}`} />
+
+            default:
+                return (
+                    <ChatText text={message.message} sender={message.sender} key={`message${index}`} />
+                )
+        }
+    }
+
     return (
         <View style={tw`mx-5 mt-8 mb-[20%]`}>
-            {messages.map((message, index) => (
-                <ChatText
-                    key={`message${index}`}
-                    text={message.message}
-                    sender={message.sender}
-                />
-            ))}
-            {/* <ChatText text="Hello there" sender="Bubby" />
+            <View style={tw`flex flex-col gap-y-2`}>
+                {messages.map((message, index) =>
+                    returnMessage(message, index)
+                )}
+                {/* <ChatText text="Hello there" sender="Bubby" />
             <ChatText
                 text="What a new and wonderful beginning"
                 sender="Teddy"
             /> */}
+            </View>
 
             <TextInput
                 ref={messageBoxRef}

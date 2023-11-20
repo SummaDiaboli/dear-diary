@@ -6,10 +6,12 @@ import {
 } from "@react-navigation/native"
 import { useFonts } from "expo-font"
 import { SplashScreen, Stack } from "expo-router"
-import React, { useEffect } from "react"
+import React, { useEffect, useState } from "react"
 import * as Font from "expo-font"
 import { useColorScheme } from "react-native"
 import { RecoilRoot } from "recoil"
+import { firebaseAuth } from "../constants/firebaseConfig"
+import { User } from "firebase/auth"
 
 export {
     // Catch any errors thrown by the Layout component.
